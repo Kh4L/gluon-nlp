@@ -186,6 +186,9 @@ if __name__ == '__main__':
                         help='In Question-Answering:'
                         'If null_score - best_non_null is greater than the threshold predict null.'
                         'Typical values are between -1.0 and -5.0. default is 0.0')
+    parser.add_argument('--tensorrt',
+                        action='store_true',
+                        help='If set, enables MXNet-TRT optimization.')
 
     # specific for embedding
     parser.add_argument('--oov_way', type=str, default='avg',
@@ -538,11 +541,23 @@ def infer(prefix, task):
                                                    prefix + '-0000.params',
                                                    ctx=ctx)
     imported_net.hybridize(static_alloc=True, static_shape=True)
+    num_warmup = 50 if args.test_batch_size > 64 else 200
+    if args.tensorrt:
+        dummy_token_ids = mx.nd.random.uniform(shape=(128,128), ctx=mx.gpu(0))
+        dummy_token_types = mx.nd.random.uniform(shape=(128,128), ctx=mx.gpu(0))
+        dummy_valid_length = mx.nd.random.uniform(shape=(128), ctx=mx.gpu(0))
+        imported_net.optimize_for(dummy_token_ids,
+                                  dummy_token_types,
+                                  dummy_valid_length,
+                                  backend='TensorRT',
+                                  static_alloc=True,
+                                  static_shape=True,
+                                  backend_opts={'precision':'fp16_int8','calibration_iters':num_warmup})
+
+
     if dtype == 'float16':
         imported_net.cast('float16')
     tokenizer = nlp.data.BERTTokenizer(vocab=vocab, lower=do_lower_case)
-
-    num_warmup = 2
 
     if task == 'QA':
         dataloader, _, SQuAD_dataset = preprocess_data(tokenizer, task)
