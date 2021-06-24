@@ -552,7 +552,8 @@ def infer(prefix, task):
                                   backend='TensorRT',
                                   static_alloc=True,
                                   static_shape=True,
-                                  backend_opts={'precision':'fp16_int8','calibration_iters':num_warmup})
+                                  precision='fp16_int8',
+                                  calibration_iters=num_warmup)
 
 
     if dtype == 'float16':
